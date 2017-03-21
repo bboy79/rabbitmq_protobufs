@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">testsenincandroid</string>
+    <string name="none_paired">None paired</string>
+    <string name="title_paired_devices">Paired Devices</string>
+</resources>

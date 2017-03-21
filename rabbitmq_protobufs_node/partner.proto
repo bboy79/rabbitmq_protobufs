@@ -1,0 +1,17 @@
+syntax = "proto3";
+package partnerpackage;
+
+option java_package = "com.hidepixel.testsenincandroid";
+
+option java_outer_classname = "PartnerProto";
+
+message Partner {
+  string id = 1;
+  uint64 updated_at = 2; // becomes updatedAt
+  uint64 created_at = 3; // becomes createdAt
+  string web_site = 4; // becomes webSite
+  string description = 5;
+  string name = 6;
+  uint32 version = 7;
+  string picture = 8;
+}
