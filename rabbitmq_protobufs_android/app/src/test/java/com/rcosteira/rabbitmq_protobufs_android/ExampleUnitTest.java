@@ -1,4 +1,4 @@
-package com.hidepixel.rabbitmq_protobufs_android;
+package com.rcosteira.rabbitmq_protobufs_android;
 
 import org.junit.Test;
 

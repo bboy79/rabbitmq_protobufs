@@ -1,6 +1,5 @@
-package com.hidepixel.rabbitmq_protobufs_android;
+package com.rcosteira.rabbitmq_protobufs_android;
 
-import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -17,6 +16,8 @@ import com.rabbitmq.client.Envelope;
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 
+import androidx.appcompat.app.AppCompatActivity;
+
 public class MainActivity extends AppCompatActivity {
 
     private static final String PROTO_QUEUE_NAME = "proto";
@@ -29,8 +30,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
 
-        Button button = (Button) findViewById(R.id.button);
-        Button button2 = (Button) findViewById(R.id.button2);
+        Button button = findViewById(R.id.button);
+        Button button2 = findViewById(R.id.button2);
 
         button.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -58,7 +59,7 @@ public class MainActivity extends AppCompatActivity {
                         try {
                             sendProtobufMessageToRabbit();
                             sendJSONMessageToRabbit();
-                        } catch (IOException | InterruptedException | TimeoutException e) {
+                        } catch (IOException | TimeoutException e) {
                             e.printStackTrace();
                         }
                     }
@@ -67,7 +68,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    public void sendJSONMessageToRabbit() throws IOException, TimeoutException, InterruptedException {
+    public void sendJSONMessageToRabbit() throws IOException, TimeoutException {
 
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("10.0.2.2");
@@ -92,7 +93,7 @@ public class MainActivity extends AppCompatActivity {
         connection.close();
     }
 
-    public void sendProtobufMessageToRabbit() throws IOException, TimeoutException, InterruptedException {
+    public void sendProtobufMessageToRabbit() throws IOException, TimeoutException {
 
         ConnectionFactory factory = new ConnectionFactory();
         factory.setHost("10.0.2.2"); // localhost equivalent for the android emulator
