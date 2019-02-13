@@ -1,19 +1,24 @@
 #!/usr/bin/env node
 
-var amqp = require('amqplib/callback_api');
+const amqp = require("amqplib/callback_api");
 
-amqp.connect('amqp://localhost', function(err, conn) {
-  conn.createChannel(function(err, ch) {
-    var q = 'json';
+const consumeData = (error, channel) => {
+  const q = "json";
 
-    ch.assertQueue(q, {durable: false});
-    console.log(" [*] Waiting for messages in %s. To exit press CTRL+C", q);
+  channel.assertQueue(q, { durable: false });
+  console.log(" [*] Waiting for messages in %s queue.", q);
 
-    ch.consume(q, function(msg) {
-      var json = msg.content.toString();
+  channel.consume(
+    q,
+    msg => {
+      const json = msg.content.toString();
 
       console.log(json);
+    },
+    { noAck: true }
+  );
+};
 
-    }, {noAck: true});
-  });
+amqp.connect("amqp://localhost", (error, connection) => {
+  connection.createChannel(consumeData);
 });

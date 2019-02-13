@@ -1,24 +1,29 @@
 #!/usr/bin/env node
 
-var amqp = require('amqplib/callback_api');
-var protobuf = require('protocol-buffers');
-var fs = require('fs');
+const amqp = require("amqplib/callback_api");
+const protobuf = require("protocol-buffers");
+const fs = require("fs");
 
+const userProto = "../rabbitmq_protobufs_android/app/src/main/proto/user.proto";
 
-amqp.connect('amqp://localhost', function(err, conn) {
-  conn.createChannel(function(err, ch) {
-    var q = 'proto';
+const consumeData = (error, channel) => {
+  const q = "proto";
 
-    var messages = protobuf(fs.readFileSync('partner.proto'));
+  const messages = protobuf(fs.readFileSync(userProto));
 
-    ch.assertQueue(q, {durable: false});
-    console.log(" [*] Waiting for messages in %s. To exit press CTRL+C", q);
+  channel.assertQueue(q, { durable: false });
+  console.log(" [*] Waiting for messages in %s queue.", q);
 
-    ch.consume(q, function(msg) {
-
-      var obj = messages.Partner.decode(msg.content);
+  channel.consume(
+    q,
+    msg => {
+      const obj = messages.User.decode(msg.content);
       console.log(obj);
+    },
+    { noAck: true }
+  );
+};
 
-    }, {noAck: true});
-  });
+amqp.connect("amqp://localhost", (error, conn) => {
+  conn.createChannel(consumeData);
 });
