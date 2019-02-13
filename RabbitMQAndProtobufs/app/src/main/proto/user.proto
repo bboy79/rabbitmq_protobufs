@@ -1,0 +1,28 @@
+syntax = "proto3";
+package userpackage;
+
+option java_package = "com.rcosteira.rabbitmq_protobufs_android";
+
+option java_outer_classname = "UserProto";
+
+message User {
+    string id = 1;
+    uint64 updated_at = 2; // becomes updatedAt
+    uint64 created_at = 3; // becomes createdAt
+    string name = 4;
+    uint32 version = 5;
+    string picture = 6;
+
+    enum PhoneType {
+        MOBILE = 0;
+        HOME = 1;
+        WORK = 2;
+    }
+
+    message PhoneNumber {
+        string number = 1;
+        PhoneType type = 2;
+    }
+
+    repeated PhoneNumber phones = 7;
+}
