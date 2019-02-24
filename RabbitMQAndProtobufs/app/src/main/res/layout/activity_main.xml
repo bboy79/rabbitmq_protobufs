@@ -37,7 +37,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="TextView"
+        android:text=""
         app:layout_constraintStart_toStartOf="@+id/incomingTextViewLabel"
         app:layout_constraintTop_toBottomOf="@+id/incomingTextViewLabel" />
 

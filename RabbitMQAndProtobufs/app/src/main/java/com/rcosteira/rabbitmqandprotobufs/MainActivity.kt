@@ -1,6 +1,7 @@
 package com.rcosteira.rabbitmqandprotobufs
 
 import android.os.Bundle
+import android.util.Log
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.MutableLiveData
@@ -8,19 +9,30 @@ import androidx.lifecycle.Observer
 import com.google.android.material.button.MaterialButton
 import com.rabbitmq.client.*
 import com.rcosteira.rabbitmq_protobufs_android.UserProto
+import kotlinx.coroutines.*
+import kotlin.coroutines.CoroutineContext
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), CoroutineScope {
 
     companion object {
-        const val PROTO_Q_NAME = "proto"
-        const val JSON_Q_NAME = "json"
+        const val PROTO_FROM_SERVER = "proto_from_server"
+        const val JSON_FROM_SERVER = "json_from_server"
+        const val PROTO_FROM_ANDROID = "proto_from_android"
+        const val JSON_FROM_ANDROID = "json_from_android"
     }
 
-    lateinit var protoButton: MaterialButton
-    lateinit var jsonButton: MaterialButton
     lateinit var receivedMessageTextView: TextView
     lateinit var connection: Connection
     lateinit var channel: Channel
+
+
+    private lateinit var job: Job
+    override val coroutineContext: CoroutineContext
+        get() = job + Dispatchers.Main
+
+    private val handler = CoroutineExceptionHandler { _, throwable ->
+        Log.e("Exception", ":$throwable")
+    }
 
     private val incomingMessage: MutableLiveData<String> = MutableLiveData()
 
@@ -28,21 +40,28 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        setupRabbitConnection()
+        job = SupervisorJob()
 
         setupMessageSendingButtons()
 
         setupReceivedMessageTextView()
 
-        listenToIncomingMessages()
+        launch(handler) {
+            withContext(Dispatchers.Default) {
+                setupRabbitConnection()
+                listenToIncomingMessages()
+            }
+
+        }
     }
 
     private fun setupRabbitConnection() {
         connection = createConnection()
         channel = connection.createChannel()
-
-        channel.queueDeclare(JSON_Q_NAME, false, false, false, null)
-        channel.queueDeclare(PROTO_Q_NAME, false, false, false, null)
+        channel.queueDeclare(JSON_FROM_SERVER, false, false, false, null)
+        channel.queueDeclare(PROTO_FROM_SERVER, false, false, false, null)
+        channel.queueDeclare(JSON_FROM_ANDROID, false, false, false, null)
+        channel.queueDeclare(PROTO_FROM_ANDROID, false, false, false, null)
     }
 
     private fun createConnection(): Connection {
@@ -58,22 +77,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupMessageSendingButtons() {
-        protoButton = findViewById(R.id.protoButton)
-        jsonButton = findViewById(R.id.jsonButton)
+        val protoButton: MaterialButton = findViewById(R.id.protoButton)
+        val jsonButton: MaterialButton = findViewById(R.id.jsonButton)
 
         protoButton.setOnClickListener {
-            sendMessage(PROTO_Q_NAME, ::getProtobufMessage)
+            sendMessage(PROTO_FROM_ANDROID, ::getProtobufMessage)
         }
 
         jsonButton.setOnClickListener {
-            sendMessage(JSON_Q_NAME, ::getJsonMessage)
+            sendMessage(JSON_FROM_ANDROID, ::getJsonMessage)
         }
     }
 
     private fun sendMessage(queueName: String, formatHandler: () -> ByteArray) {
         val message = formatHandler()
 
-        channel.basicPublish("", queueName, null, message)
+        launch(handler) {
+            withContext(Dispatchers.Default) {
+                channel.basicPublish("", queueName, null, message)
+            }
+        }
     }
 
 
@@ -95,7 +118,7 @@ class MainActivity : AppCompatActivity() {
             .setCreatedAt(System.currentTimeMillis())
             .setName("Barry Allen")
             .setVersion(1)
-            .setPicture("applications/56fa595034b950a97a63e3a0/086eda82-3d08-4b4d-ba38-2596d0bf6a98.jpeg")
+            .setPicture("resources/New Suit.jpeg")
             .addAllPhones(phones)
             .build()
 
@@ -110,7 +133,7 @@ class MainActivity : AppCompatActivity() {
                 "\"created_at\": \"${System.currentTimeMillis()}\", " +
                 "\"name\": \"Barry Allen\"," +
                 "\"version\": \"1," +
-                "\"picture\": \"applications/56fa595034b950a97a63e3a0/086eda82-3d08-4b4d-ba38-2596d0bf6a98.jpeg\"," +
+                "\"picture\": \"resources/New Suit.jpeg\"," +
                 "\"phones\": [" +
                 "{" +
                 "\"number\": \"+123456789\"," +
@@ -141,7 +164,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun listenToProtoQueue() {
         val protoConsumer = getProtoConsumer()
-        channel.basicConsume(PROTO_Q_NAME, true, protoConsumer)
+        channel.basicConsume(PROTO_FROM_SERVER, true, protoConsumer)
     }
 
     private fun getProtoConsumer(): Consumer {
@@ -153,6 +176,7 @@ class MainActivity : AppCompatActivity() {
                 body: ByteArray?
             ) {
                 body?.let {
+                    Log.d("MainActivity", "Got a protobuf")
                     val user = UserProto.User.parseFrom(it)
                     incomingMessage.postValue(user.toString())
                 }
@@ -162,7 +186,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun listenToJsonQueue() {
         val jsonConsumer = getJsonConsumer()
-        channel.basicConsume(PROTO_Q_NAME, true, jsonConsumer)
+        channel.basicConsume(JSON_FROM_SERVER, true, jsonConsumer)
     }
 
     private fun getJsonConsumer(): Consumer {
@@ -174,7 +198,8 @@ class MainActivity : AppCompatActivity() {
                 body: ByteArray?
             ) {
                 body?.let {
-                    incomingMessage.postValue(String(it))
+                    Log.d("MainActivity", "Got a json")
+                    incomingMessage.postValue(String(it, charset("UTF-8")))
                 }
             }
         }
@@ -185,52 +210,8 @@ class MainActivity : AppCompatActivity() {
         connection.close()
         channel.close()
 
+        coroutineContext.cancelChildren()
+
         super.onDestroy()
     }
 }
-
-/**
-public void getProtobufMessageFromRabbit() throws IOException, TimeoutException {
-
-ConnectionFactory connectionFactory = new ConnectionFactory();
-connectionFactory.setHost("10.0.2.2");
-Connection connection = connectionFactory.newConnection();
-Channel channel = connection.createChannel();
-
-channel.queueDeclare(PROTO_QUEUE_NAME, false, false, false, null);
-
-Consumer consumer = new DefaultConsumer(channel) {
-@Override
-public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-PartnerProto.Partner proto = PartnerProto.Partner.parseFrom(body);
-
-
-Log.v("rabbitmq receive", "Received protobuf '" + proto.toString() + "'");
-}
-};
-
-channel.basicConsume(PROTO_QUEUE_NAME, true, consumer);
-}
-
-public void getJSONMessageFromRabbit() throws IOException, TimeoutException {
-ConnectionFactory connectionFactory = new ConnectionFactory();
-connectionFactory.setHost("10.0.2.2");
-Connection connection = connectionFactory.newConnection();
-Channel channel = connection.createChannel();
-
-channel.queueDeclare(JSON_QUEUE_NAME, false, false, false, null);
-
-Consumer consumer = new DefaultConsumer(channel) {
-@Override
-public void handleDelivery(String consumerTag, Envelope envelope, AMQP.BasicProperties properties, byte[] body) throws IOException {
-String jsonMessage = new String(body, "UTF-8");
-
-Log.v("rabbitmq receive", "Received json '" + jsonMessage + "'");
-}
-};
-
-channel.basicConsume(JSON_QUEUE_NAME, true, consumer);
-}
-
-}
- */
